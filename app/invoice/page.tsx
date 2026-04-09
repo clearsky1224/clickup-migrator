@@ -713,9 +713,17 @@ function SheetRow({
 
       {/* Task Name */}
       <td className="px-0 py-0">
-        <CellInput
-          value={task.name} onChange={v => onChange({ name: v })}
-          placeholder="Task name" className="text-white font-medium"
+        <textarea
+          value={task.name}
+          onChange={e => onChange({ name: e.target.value })}
+          placeholder="Task name"
+          rows={1}
+          className="w-full bg-transparent text-white font-medium text-xs px-3 py-2 outline-none focus:bg-gray-800/60 rounded transition-colors placeholder-gray-700 focus:placeholder-gray-600 resize-none overflow-hidden"
+          onInput={(e) => {
+            const target = e.target as HTMLTextAreaElement;
+            target.style.height = 'auto';
+            target.style.height = target.scrollHeight + 'px';
+          }}
         />
       </td>
 
@@ -738,9 +746,17 @@ function SheetRow({
       {/* ClickUp URL */}
       <td className="px-0 py-0">
         <div className="flex items-center">
-          <CellInput
-            value={task.url} onChange={v => onChange({ url: v })}
-            placeholder="https://app.clickup.com/t/..." className="text-blue-400 text-[11px] flex-1"
+          <textarea
+            value={task.url}
+            onChange={e => onChange({ url: e.target.value })}
+            placeholder="https://app.clickup.com/t/..."
+            rows={1}
+            className="flex-1 bg-transparent text-blue-400 text-[11px] px-3 py-2 outline-none focus:bg-gray-800/60 rounded transition-colors placeholder-gray-700 focus:placeholder-gray-600 resize-none overflow-hidden"
+            onInput={(e) => {
+              const target = e.target as HTMLTextAreaElement;
+              target.style.height = 'auto';
+              target.style.height = target.scrollHeight + 'px';
+            }}
           />
           {task.url && (
             <a href={task.url} target="_blank" rel="noopener noreferrer"
