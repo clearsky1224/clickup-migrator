@@ -64,6 +64,9 @@ export async function POST(req: NextRequest) {
         .join('\r\n');
 
       // If uploadToDrive is requested and we have an access token, upload to Google Drive
+      let driveFileId: string | undefined;
+      let driveFileName: string | undefined;
+      
       if (uploadToDrive && driveAccessToken) {
         try {
           const fileName = `Invoice-${month.replace(/\s/g, '-')}.csv`;
@@ -84,29 +87,21 @@ export async function POST(req: NextRequest) {
 
           if (uploadResp.ok) {
             const driveFile = await uploadResp.json();
-            return NextResponse.json({ 
-              csvData: csv, 
-              driveFileId: driveFile.id,
-              driveFileName: fileName,
-            });
+            driveFileId = driveFile.id;
+            driveFileName = fileName;
+          } else {
+            console.error('Drive upload failed:', uploadResp.status, await uploadResp.text());
           }
         } catch (driveError) {
-          console.error('Drive upload failed:', driveError);
-          // Fall through to return CSV anyway
+          console.error('Drive upload error:', driveError);
         }
       }
 
-      // Return CSV data as JSON for client-side download
-      if (uploadToDrive) {
-        return NextResponse.json({ csvData: csv });
-      }
-
-      // Original behavior: return as downloadable file
-      return new NextResponse(csv, {
-        headers: {
-          'Content-Type': 'text/csv',
-          'Content-Disposition': `attachment; filename="Invoice-${month.replace(/\s/g, '-')}.csv"`,
-        },
+      // Always return CSV data for client-side download
+      return NextResponse.json({ 
+        csvData: csv,
+        driveFileId,
+        driveFileName,
       });
     }
 

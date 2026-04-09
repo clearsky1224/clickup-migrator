@@ -315,7 +315,7 @@ export default function InvoicePage() {
   async function exportCSV() {
     setExporting(true);
     try {
-      // Get Google Drive access token
+      // Get Google Drive access token (optional)
       const driveToken = await getGoogleDriveToken();
       
       const token = sessionStorage.getItem('clickup_token') || localStorage.getItem('clickup_token') || '';
@@ -328,7 +328,12 @@ export default function InvoicePage() {
           driveAccessToken: driveToken || undefined,
         }),
       });
-      if (!resp.ok) throw new Error('Export failed');
+      
+      if (!resp.ok) {
+        const errorData = await resp.json().catch(() => ({}));
+        throw new Error(errorData.error || `Export failed: ${resp.status}`);
+      }
+      
       const result = await resp.json();
       
       // Download locally
@@ -336,17 +341,25 @@ export default function InvoicePage() {
         const blob = new Blob([result.csvData], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = `Invoice-${month.replace(/\s/g, '-')}.csv`; a.click();
+        a.href = url; 
+        a.download = `Invoice-${month.replace(/\s/g, '-')}.csv`; 
+        a.click();
         URL.revokeObjectURL(url);
-      }
-      
-      // Show success message
-      if (result.driveFileId) {
-        notify(`✓ CSV downloaded & uploaded to Google Drive`);
+        
+        // Show success message
+        if (result.driveFileId) {
+          notify(`✓ CSV downloaded & uploaded to Google Drive`);
+        } else {
+          notify('✓ CSV downloaded successfully');
+        }
       } else {
-        notify('CSV downloaded — open in Google Sheets or Excel');
+        throw new Error('No CSV data received from server');
       }
-    } catch (e) { setImportError(String(e)); }
+    } catch (e) { 
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      notify(`❌ Export failed: ${errorMsg}`);
+      console.error('Export error:', e);
+    }
     finally { setExporting(false); }
   }
 
