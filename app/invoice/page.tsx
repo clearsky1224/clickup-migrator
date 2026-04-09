@@ -30,7 +30,14 @@ function calcPrice(task: InvoiceTask): number {
 }
 
 function fmt(n: number, currency: string = 'USD') {
-  return n.toLocaleString('en-US', { style: 'currency', currency });
+  try {
+    // Validate currency code (must be 3 letters)
+    const validCurrency = currency && currency.length === 3 ? currency : 'USD';
+    return n.toLocaleString('en-US', { style: 'currency', currency: validCurrency });
+  } catch (e) {
+    // Fallback if currency is invalid
+    return `${currency || 'USD'} ${n.toFixed(2)}`;
+  }
 }
 
 function convertPrice(usdPrice: number, exchangeRate: number): number {
@@ -1004,7 +1011,14 @@ function SheetRow({
         {task.taskType === 'Fixed Price' ? (
           <div className="relative">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs pointer-events-none">
-              {new Intl.NumberFormat('en-US', { style: 'currency', currency: settings.currency }).format(0).replace(/[\d.,]/g, '').trim()}
+              {(() => {
+                try {
+                  const validCurrency = settings.currency && settings.currency.length === 3 ? settings.currency : 'USD';
+                  return new Intl.NumberFormat('en-US', { style: 'currency', currency: validCurrency }).format(0).replace(/[\d.,]/g, '').trim();
+                } catch {
+                  return settings.currency || '$';
+                }
+              })()}
             </div>
             <input
               type="number"

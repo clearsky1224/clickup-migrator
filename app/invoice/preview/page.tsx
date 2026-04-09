@@ -7,7 +7,14 @@ import type { InvoiceClient, InvoiceSettings } from '@/lib/types';
 import { TASK_TYPE_RATES } from '@/lib/types';
 
 function fmt(n: number, currency: string = 'USD') {
-  return n.toLocaleString('en-US', { style: 'currency', currency });
+  try {
+    // Validate currency code (must be 3 letters)
+    const validCurrency = currency && currency.length === 3 ? currency : 'USD';
+    return n.toLocaleString('en-US', { style: 'currency', currency: validCurrency });
+  } catch (e) {
+    // Fallback if currency is invalid
+    return `${currency || 'USD'} ${n.toFixed(2)}`;
+  }
 }
 
 function convertPrice(usdPrice: number, exchangeRate: number): number {
