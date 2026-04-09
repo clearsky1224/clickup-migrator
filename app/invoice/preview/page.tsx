@@ -106,13 +106,16 @@ function PreviewContent() {
         {/* Client sections */}
         {clients.map((client) => {
           const subtotal = client.tasks.reduce((s, t) => s + t.price, 0);
+          const clientCurrency = client.currency || settings?.currency || 'USD';
+          const clientRate = client.exchangeRate || settings?.exchangeRate || 1;
           return (
             <div key={client.name} className="mb-10 page-break-inside-avoid">
               {/* Client header */}
               <div className="bg-gray-900 text-white px-4 py-2.5 rounded-t-lg">
                 <h2 className="font-bold text-sm uppercase tracking-widest">{client.name}</h2>
-                {(client.email || client.address) && (
+                {(client.contactName || client.email || client.address) && (
                   <div className="mt-1.5 text-xs text-gray-400 space-y-0.5">
+                    {client.contactName && <div className="text-gray-300">Attn: {client.contactName}</div>}
                     {client.email && <div>{client.email}</div>}
                     {client.address && <div>{client.address}</div>}
                   </div>
@@ -157,7 +160,7 @@ function PreviewContent() {
                         {task.hrs !== '' ? task.hrs : '—'}
                       </td>
                       <td className="px-3 py-2.5 border-t border-gray-100 text-right font-mono font-medium text-gray-800">
-                        {fmt(convertPrice(task.price, settings?.exchangeRate || 1), settings?.currency || 'USD')}
+                        {fmt(convertPrice(task.price, clientRate), clientCurrency)}
                       </td>
                     </tr>
                   ))}
@@ -165,10 +168,17 @@ function PreviewContent() {
                 <tfoot>
                   <tr className="bg-gray-900 text-white">
                     <td colSpan={4} className="px-3 py-2.5 text-right font-semibold text-sm">Subtotal</td>
-                    <td className="px-3 py-2.5 text-right font-bold font-mono">{fmt(convertPrice(subtotal, settings?.exchangeRate || 1), settings?.currency || 'USD')}</td>
+                    <td className="px-3 py-2.5 text-right font-bold font-mono">{fmt(convertPrice(subtotal, clientRate), clientCurrency)}</td>
                   </tr>
                 </tfoot>
               </table>
+
+              {/* Client-specific footnote */}
+              {client.footnote && (
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{client.footnote}</p>
+                </div>
+              )}
             </div>
           );
         })}

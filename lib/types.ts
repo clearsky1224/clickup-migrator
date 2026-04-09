@@ -166,8 +166,12 @@ export interface InvoiceTask {
 
 export interface InvoiceClient {
   name:    string;
+  contactName?: string;   // Contact person name
   email?:  string;
   address?: string;
+  currency?: string;      // Client-specific currency (e.g., "PHP", "USD")
+  exchangeRate?: number;  // Client-specific exchange rate from USD
+  footnote?: string;      // Custom payment details or notes for this client
   tasks:   InvoiceTask[];
 }
 

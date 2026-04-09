@@ -541,7 +541,9 @@ export default function InvoicePage() {
                   <span className="font-bold text-white text-sm tracking-wide truncate">{client.name}</span>
                   <span className="text-xs text-gray-500 flex-shrink-0">{client.tasks.length} row{client.tasks.length !== 1 ? 's' : ''}</span>
                 </button>
-                <span className="text-white font-bold text-sm tabular-nums flex-shrink-0">{fmt(convertPrice(subtotal, settings.exchangeRate), settings.currency)}</span>
+                <span className="text-white font-bold text-sm tabular-nums flex-shrink-0">
+                  {fmt(convertPrice(subtotal, client.exchangeRate || settings.exchangeRate), client.currency || settings.currency)}
+                </span>
 
                 {/* Client action buttons */}
                 <div className="flex items-center gap-1 flex-shrink-0">
@@ -555,27 +557,76 @@ export default function InvoicePage() {
                 </div>
               </div>
 
-              {/* ── Client details (email, address) ───────────────────────── */}
+              {/* ── Client details (email, address, currency) ───────────────────────── */}
               {isExpanded && (
-                <div className="px-4 py-3 bg-gray-800/30 border-b border-gray-800/60 grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] text-gray-600 uppercase tracking-wider mb-1">Client Email</label>
-                    <input
-                      type="email"
-                      value={client.email || ''}
-                      onChange={e => updateClient(client.name, { email: e.target.value })}
-                      placeholder="client@example.com"
-                      className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded px-2.5 py-1.5 outline-none focus:border-violet-500 transition-colors"
-                    />
+                <div className="px-4 py-3 bg-gray-800/30 border-b border-gray-800/60 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] text-gray-600 uppercase tracking-wider mb-1">Contact Name</label>
+                      <input
+                        type="text"
+                        value={client.contactName || ''}
+                        onChange={e => updateClient(client.name, { contactName: e.target.value })}
+                        placeholder="John Doe"
+                        className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded px-2.5 py-1.5 outline-none focus:border-violet-500 transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-gray-600 uppercase tracking-wider mb-1">Client Email</label>
+                      <input
+                        type="email"
+                        value={client.email || ''}
+                        onChange={e => updateClient(client.name, { email: e.target.value })}
+                        placeholder="client@example.com"
+                        className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded px-2.5 py-1.5 outline-none focus:border-violet-500 transition-colors"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] text-gray-600 uppercase tracking-wider mb-1">Client Address</label>
+                      <input
+                        type="text"
+                        value={client.address || ''}
+                        onChange={e => updateClient(client.name, { address: e.target.value })}
+                        placeholder="City, Country"
+                        className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded px-2.5 py-1.5 outline-none focus:border-violet-500 transition-colors"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] text-gray-600 uppercase tracking-wider mb-1">Currency</label>
+                        <input
+                          type="text"
+                          value={client.currency || ''}
+                          onChange={e => updateClient(client.name, { currency: e.target.value.toUpperCase() })}
+                          placeholder={settings.currency || 'USD'}
+                          maxLength={3}
+                          className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded px-2.5 py-1.5 outline-none focus:border-violet-500 transition-colors uppercase"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-600 uppercase tracking-wider mb-1">Rate</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={client.exchangeRate || ''}
+                          onChange={e => updateClient(client.name, { exchangeRate: parseFloat(e.target.value) || undefined })}
+                          placeholder={String(settings.exchangeRate || 1)}
+                          className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded px-2.5 py-1.5 outline-none focus:border-violet-500 transition-colors"
+                        />
+                      </div>
+                    </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] text-gray-600 uppercase tracking-wider mb-1">Client Address</label>
-                    <input
-                      type="text"
-                      value={client.address || ''}
-                      onChange={e => updateClient(client.name, { address: e.target.value })}
-                      placeholder="City, Country"
-                      className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded px-2.5 py-1.5 outline-none focus:border-violet-500 transition-colors"
+                    <label className="block text-[10px] text-gray-600 uppercase tracking-wider mb-1">Invoice Footnote <span className="text-gray-700">(payment details, notes)</span></label>
+                    <textarea
+                      value={client.footnote || ''}
+                      onChange={e => updateClient(client.name, { footnote: e.target.value })}
+                      placeholder="Payment details, bank info, or special notes for this client..."
+                      rows={2}
+                      className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded px-2.5 py-1.5 outline-none focus:border-violet-500 transition-colors resize-none"
                     />
                   </div>
                 </div>
@@ -746,7 +797,7 @@ export default function InvoicePage() {
                       <div className="flex-1">
                         <div className="text-white font-medium text-sm">{client.name}</div>
                         <div className="text-gray-400 text-xs">
-                          {taskCount} task{taskCount !== 1 ? 's' : ''} • {fmt(convertPrice(subtotal, settings.exchangeRate), settings.currency)}
+                          {taskCount} task{taskCount !== 1 ? 's' : ''} • {fmt(convertPrice(subtotal, client.exchangeRate || settings.exchangeRate), client.currency || settings.currency)}
                         </div>
                       </div>
                     </label>
