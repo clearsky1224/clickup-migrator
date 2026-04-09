@@ -318,23 +318,51 @@ export default function InvoicePage() {
       // Get Google Drive access token (optional)
       const driveToken = await getGoogleDriveToken();
       
+      // Sanitize data to ensure valid JSON (handle newlines, special chars)
+      const sanitizedClients = clients.map(client => ({
+        ...client,
+        tasks: client.tasks.map(task => ({
+          ...task,
+          name: task.name || '',
+          desc: task.desc || '',
+          url: task.url || '',
+        }))
+      }));
+      
       const token = sessionStorage.getItem('clickup_token') || localStorage.getItem('clickup_token') || '';
       const resp = await fetch('/api/invoice/export-sheets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: token },
         body: JSON.stringify({ 
-          month, clients, settings, format: 'csv', 
+          month, 
+          clients: sanitizedClients, 
+          settings, 
+          format: 'csv', 
           uploadToDrive: !!driveToken,
           driveAccessToken: driveToken || undefined,
         }),
       });
       
       if (!resp.ok) {
-        const errorData = await resp.json().catch(() => ({}));
-        throw new Error(errorData.error || `Export failed: ${resp.status}`);
+        const text = await resp.text();
+        console.error('Export failed response:', text);
+        try {
+          const errorData = JSON.parse(text);
+          throw new Error(errorData.error || `Export failed: ${resp.status}`);
+        } catch {
+          throw new Error(`Export failed: ${resp.status} - ${text.substring(0, 100)}`);
+        }
       }
       
-      const result = await resp.json();
+      const text = await resp.text();
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        console.error('Response text:', text.substring(0, 200));
+        throw new Error('Invalid response from server. Check console for details.');
+      }
       
       // Download locally
       if (result.csvData) {
