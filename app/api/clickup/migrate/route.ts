@@ -119,17 +119,41 @@ export async function POST(req: NextRequest) {
                 // New task - migrate it
                 tasksToMigrate.push(t);
               } else {
-                // Task exists - check if source was updated after target
-                const sourceUpdated = (t as unknown as Record<string, unknown>).date_updated as string || '0';
-                const targetUpdated = existing.date_updated;
-                
-                if (parseInt(sourceUpdated) > parseInt(targetUpdated)) {
-                  // Source task is newer - re-migrate it
-                  tasksToMigrate.push(t);
-                  tasksToUpdate.set(t.name, existing.id);
-                  send({ type: 'task_update_detected', listId, taskName: t.name });
+                // Task exists - check if meaningful content was updated
+                // Fetch both tasks to compare content (not just timestamps)
+                try {
+                  const sourceTask = await client.getTask(t.id);
+                  const targetTask = await client.getTask(existing.id);
+                  
+                  const sourceRaw = sourceTask as unknown as Record<string, unknown>;
+                  const targetRaw = targetTask as unknown as Record<string, unknown>;
+                  
+                  // Compare description (ignore status changes)
+                  const sourceDesc = (sourceRaw.markdown_description || sourceRaw.description || '') as string;
+                  const targetDesc = (targetRaw.markdown_description || targetRaw.description || '') as string;
+                  
+                  // Check if description changed
+                  const descChanged = sourceDesc.trim() !== targetDesc.trim().replace(/\n\n---\n🔗 Migrated from:.*$/, '').trim();
+                  
+                  // Check if custom fields changed (if migration enabled)
+                  let customFieldsChanged = false;
+                  if (config.options.migrateCustomFields && sourceTask.custom_fields?.length) {
+                    const sourceFields = JSON.stringify(sourceTask.custom_fields.map(f => ({ id: f.id, value: f.value })).sort());
+                    const targetFields = JSON.stringify(targetTask.custom_fields?.map(f => ({ id: f.id, value: f.value })).sort() || []);
+                    customFieldsChanged = sourceFields !== targetFields;
+                  }
+                  
+                  if (descChanged || customFieldsChanged) {
+                    // Meaningful content changed - re-migrate it
+                    tasksToMigrate.push(t);
+                    tasksToUpdate.set(t.name, existing.id);
+                    send({ type: 'task_update_detected', listId, taskName: t.name });
+                  }
+                  // else: only status or dates changed, skip
+                } catch (err) {
+                  // If we can't fetch tasks for comparison, skip to be safe
+                  console.error(`Could not compare tasks for "${t.name}":`, err);
                 }
-                // else: target is up to date, skip
               }
             }
             topLevel = tasksToMigrate;
