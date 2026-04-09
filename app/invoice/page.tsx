@@ -721,9 +721,17 @@ function SheetRow({
 
       {/* Description (from custom field) */}
       <td className="px-0 py-0">
-        <CellInput
-          value={task.desc} onChange={v => onChange({ desc: v })}
-          placeholder="Description" className="text-gray-400"
+        <textarea
+          value={task.desc}
+          onChange={e => onChange({ desc: e.target.value })}
+          placeholder="Description"
+          rows={1}
+          className="w-full bg-transparent text-gray-400 text-xs px-3 py-2 outline-none focus:bg-gray-800/60 rounded transition-colors placeholder-gray-700 focus:placeholder-gray-600 resize-none overflow-hidden"
+          onInput={(e) => {
+            const target = e.target as HTMLTextAreaElement;
+            target.style.height = 'auto';
+            target.style.height = target.scrollHeight + 'px';
+          }}
         />
       </td>
 
