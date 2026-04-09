@@ -118,3 +118,92 @@ export interface TokenData {
   access_token: string;
   token_type: string;
 }
+
+// ─── INVOICE TYPES ────────────────────────────────────────────────────────────
+
+export type TaskType =
+  | 'Regular Page'
+  | 'Dynamic Page'
+  | 'Lengthy Page'
+  | 'Blog / Tour'
+  | 'Hourly'
+  | 'Fixed Price'
+  | 'N/A / Free';
+
+export const TASK_TYPE_RATES: Record<TaskType, number> = {
+  'Regular Page': 20,
+  'Dynamic Page': 30,
+  'Lengthy Page': 30,
+  'Blog / Tour':  15,
+  'Hourly':        7,
+  'Fixed Price':   0, // uses qty as the amount
+  'N/A / Free':    0,
+};
+
+export const TASK_TYPES: TaskType[] = [
+  'Regular Page', 'Dynamic Page', 'Lengthy Page',
+  'Blog / Tour', 'Hourly', 'Fixed Price', 'N/A / Free',
+];
+
+export const TASK_STATUSES = [
+  'Complete', 'Done', 'For QA', 'In Progress',
+  'Live', 'Ready for Release', 'On Hold', 'Cancelled',
+];
+
+export interface InvoiceTask {
+  id:        string;
+  taskId:    string;   // ClickUp task ID (for dedup)
+  name:      string;
+  desc:      string;   // From custom field "Task Description", not built-in description
+  date:      string;
+  taskType:  TaskType | '';
+  qty:       number | '';
+  hrs:       number | '';
+  url:       string;
+  status:    string;
+  price:     number;
+}
+
+export interface InvoiceClient {
+  name:    string;
+  email?:  string;
+  address?: string;
+  tasks:   InvoiceTask[];
+}
+
+export interface InvoiceSheet {
+  month:   string;       // e.g. "April 2026"
+  clients: InvoiceClient[];
+}
+
+export interface InvoiceSettings {
+  myName:    string;
+  myEmail:   string;
+  myPayment: string;
+  googleDriveClientId: string;
+  currency:  string;  // e.g., 'USD', 'PHP', 'EUR'
+  exchangeRate: number; // Conversion rate from USD to selected currency
+  fieldMap: {
+    taskType: string;
+    qty:      string;
+    date:     string;
+    client:   string;
+    taskDesc: string;
+  };
+}
+
+export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
+  myName:    '',
+  myEmail:   '',
+  myPayment: '',
+  googleDriveClientId: '',
+  currency:  'USD',
+  exchangeRate: 1,
+  fieldMap: {
+    taskType: 'Task Type',
+    qty:      'Qty',
+    date:     'Date assigned',
+    client:   'Client',
+    taskDesc: 'Task Description',
+  },
+};

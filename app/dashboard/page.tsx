@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { RefreshCw, LogOut, ArrowRight, Users, AlertCircle } from 'lucide-react';
+import { RefreshCw, LogOut, ArrowRight, Users, AlertCircle, FileText } from 'lucide-react';
 import type { ClickUpWorkspace } from '@/lib/types';
 
 export default function DashboardPage() {
@@ -51,6 +51,25 @@ export default function DashboardPage() {
       </nav>
 
       <main className="flex-1 max-w-3xl mx-auto w-full px-6 py-12">
+
+        {/* Tool selector */}
+        <div className="grid grid-cols-2 gap-4 mb-10">
+          <div className="bg-gray-900 border-2 border-violet-500 rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-1">
+              <RefreshCw className="w-4 h-4 text-violet-400" />
+              <span className="text-white font-semibold text-sm">Task Migration</span>
+            </div>
+            <p className="text-gray-500 text-xs">Copy tasks between ClickUp workspaces</p>
+          </div>
+          <a href="/invoice" className="bg-gray-900 border-2 border-gray-700 hover:border-violet-500/60 rounded-xl p-5 transition-all group">
+            <div className="flex items-center gap-2 mb-1">
+              <FileText className="w-4 h-4 text-gray-500 group-hover:text-violet-400 transition-colors" />
+              <span className="text-gray-400 group-hover:text-white font-semibold text-sm transition-colors">Invoice Manager</span>
+            </div>
+            <p className="text-gray-600 text-xs group-hover:text-gray-500 transition-colors">Import tasks &amp; generate invoices</p>
+          </a>
+        </div>
+
         <h1 className="text-2xl font-bold text-white mb-1">Select Workspaces</h1>
         <p className="text-gray-500 text-sm mb-8">Choose a source and destination workspace to begin migration.</p>
 
