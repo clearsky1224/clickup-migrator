@@ -683,6 +683,7 @@ export default function InvoicePage() {
                           isFirst={rowIdx === 0}
                           isLast={rowIdx === client.tasks.length - 1}
                           settings={settings}
+                          client={client}
                         />
                       ))}
                     </tbody>
@@ -874,7 +875,7 @@ function IconBtn({ icon, title, onClick, disabled, accent, danger }: {
 // ─── Sheet Row (spreadsheet cell editing) ────────────────────────────────────
 function SheetRow({
   task, rowNum, selected, onSelect, onChange, onRemove,
-  onDuplicate, onInsertBelow, onMoveUp, onMoveDown, isFirst, isLast, settings,
+  onDuplicate, onInsertBelow, onMoveUp, onMoveDown, isFirst, isLast, settings, client,
 }: {
   task: InvoiceTask; rowNum: number; selected: boolean;
   onSelect: () => void;
@@ -883,6 +884,7 @@ function SheetRow({
   onMoveUp: () => void; onMoveDown: () => void;
   isFirst: boolean; isLast: boolean;
   settings: InvoiceSettings;
+  client: InvoiceClient;
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -1013,10 +1015,11 @@ function SheetRow({
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs pointer-events-none">
               {(() => {
                 try {
-                  const validCurrency = settings.currency && settings.currency.length === 3 ? settings.currency : 'USD';
+                  const clientCurrency = client.currency || settings.currency || 'USD';
+                  const validCurrency = clientCurrency && clientCurrency.length === 3 ? clientCurrency : 'USD';
                   return new Intl.NumberFormat('en-US', { style: 'currency', currency: validCurrency }).format(0).replace(/[\d.,]/g, '').trim();
                 } catch {
-                  return settings.currency || '$';
+                  return client.currency || settings.currency || '$';
                 }
               })()}
             </div>
@@ -1033,7 +1036,7 @@ function SheetRow({
           </div>
         ) : (
           <div className="px-3 py-2 text-right text-white font-semibold tabular-nums select-none">
-            {fmt(convertPrice(task.price, settings.exchangeRate), settings.currency)}
+            {fmt(convertPrice(task.price, client.exchangeRate || settings.exchangeRate), client.currency || settings.currency)}
           </div>
         )}
       </td>

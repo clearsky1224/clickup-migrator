@@ -184,6 +184,7 @@ export interface InvoiceSettings {
   myName:    string;
   myEmail:   string;
   myPayment: string;
+  paymentNotes: string; // Global payment notes/details for all invoices
   googleDriveClientId: string;
   currency:  string;  // e.g., 'USD', 'PHP', 'EUR'
   exchangeRate: number; // Conversion rate from USD to selected currency
@@ -200,6 +201,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   myName:    '',
   myEmail:   '',
   myPayment: '',
+  paymentNotes: '',
   googleDriveClientId: '',
   currency:  'USD',
   exchangeRate: 1,

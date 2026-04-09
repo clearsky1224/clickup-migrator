@@ -108,6 +108,24 @@ export default function InvoiceSettingsPage() {
             </div>
           </section>
 
+          {/* Payment Notes */}
+          <section className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            <h2 className="text-sm font-semibold text-white mb-1">Payment Notes</h2>
+            <p className="text-xs text-gray-500 mb-4">
+              Global payment notes that will appear on all invoices (unless client has custom footnote).
+            </p>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Invoice Footer Notes</label>
+              <textarea
+                value={settings.paymentNotes}
+                onChange={e => update('paymentNotes', e.target.value)}
+                placeholder={'e.g. Payment Terms: Net 30 days\nLate payments subject to 5% monthly interest.\nThank you for your business!'}
+                rows={4}
+                className="w-full bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2.5 outline-none focus:border-violet-500 resize-none"
+              />
+            </div>
+          </section>
+
           {/* Google Drive Integration */}
           <section className="bg-gray-900 border border-gray-800 rounded-xl p-5">
             <h2 className="text-sm font-semibold text-white mb-1">Google Drive Integration</h2>
