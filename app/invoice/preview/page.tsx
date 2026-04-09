@@ -39,6 +39,13 @@ function PreviewContent() {
         setInvoiceNumber(parsed.invoiceNumber || '');
         setClients(parsed.clients || []);
         setSettings(parsed.settings || null);
+        
+        // Set document title immediately for PDF filename
+        if (parsed.clients && parsed.clients.length > 0 && parsed.invoiceNumber) {
+          const clientNames = parsed.clients.map((c: InvoiceClient) => c.name).join(', ');
+          document.title = `${clientNames} - Invoice - ${parsed.invoiceNumber}`;
+        }
+        
         // Clear it after reading to avoid stale data
         localStorage.removeItem('invoice_preview_data');
         return;
@@ -56,6 +63,12 @@ function PreviewContent() {
         setInvoiceNumber(parsed.invoiceNumber || '');
         setClients(parsed.clients || []);
         setSettings(parsed.settings || null);
+        
+        // Set document title for PDF filename
+        if (parsed.clients && parsed.clients.length > 0 && parsed.invoiceNumber) {
+          const clientNames = parsed.clients.map((c: InvoiceClient) => c.name).join(', ');
+          document.title = `${clientNames} - Invoice - ${parsed.invoiceNumber}`;
+        }
       } catch { /* ignore */ }
     } else {
       // Final fallback to regular invoice data
