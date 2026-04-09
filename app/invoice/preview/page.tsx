@@ -76,8 +76,31 @@ function PreviewContent() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Print toolbar — hidden when printing */}
-      <div className="print:hidden bg-white border-b px-6 py-3 flex items-center gap-3 sticky top-0 z-10 shadow-sm">
+      <style dangerouslySetInnerHTML={{__html: `
+        @media print {
+          @page {
+            size: A4;
+            margin: 1cm;
+          }
+          body {
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+          }
+          .page-break-inside-avoid {
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          table {
+            page-break-inside: auto;
+          }
+          tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+          }
+        }
+      `}} />
+        {/* Print toolbar — hidden when printing */}
+        <div className="print:hidden bg-white border-b px-6 py-3 flex items-center gap-3 sticky top-0 z-10 shadow-sm">
         <a href="/invoice" className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors">
           <ArrowLeft className="w-4 h-4" />
           Back
@@ -232,12 +255,6 @@ function PreviewContent() {
           Thank you for your business! — {settings?.myName} · {settings?.myEmail}
         </div>
       </div>
-
-      <style>{`
-        @media print {
-          .page-break-inside-avoid { page-break-inside: avoid; }
-        }
-      `}</style>
     </div>
   );
 }
