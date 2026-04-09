@@ -64,6 +64,8 @@ export default function InvoicePage() {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [copiedTasks, setCopiedTasks] = useState<InvoiceTask[]>([]);
   const [notification, setNotification] = useState('');
+  const [showClientSelector, setShowClientSelector] = useState(false);
+  const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const token = sessionStorage.getItem('clickup_token') || localStorage.getItem('clickup_token');
@@ -392,10 +394,21 @@ export default function InvoicePage() {
   }
 
   function exportPDF() {
+    // Show client selector modal
+    setShowClientSelector(true);
+    // Select all clients by default
+    setSelectedClients(new Set(clients.map(c => c.name)));
+  }
+
+  function generatePDF() {
+    // Filter clients based on selection
+    const clientsToExport = clients.filter(c => selectedClients.has(c.name));
+    
     // Save to localStorage to avoid URL length limits
-    const previewData = { month, clients, settings };
+    const previewData = { month, clients: clientsToExport, settings };
     localStorage.setItem('invoice_preview_data', JSON.stringify(previewData));
     window.open(`/invoice/preview`, '_blank');
+    setShowClientSelector(false);
   }
 
   function clearSheet() {
@@ -674,6 +687,91 @@ export default function InvoicePage() {
       {/* ── Import modal ────────────────────────────────────────────────────── */}
       {showImportModal && (
         <ImportModal settings={settings} onDone={handleImportDone} onClose={() => setShowImportModal(false)} />
+      )}
+
+      {/* ── Client Selector Modal ──────────────────────────────────────────── */}
+      {showClientSelector && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-xl border border-gray-700 w-full max-w-md shadow-2xl">
+            <div className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-white">Select Clients for Invoice</h2>
+              <button onClick={() => setShowClientSelector(false)} className="text-gray-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 max-h-96 overflow-y-auto">
+              <p className="text-sm text-gray-400 mb-4">Choose which clients to include in the PDF invoice:</p>
+              
+              {/* Select All / None */}
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => setSelectedClients(new Set(clients.map(c => c.name)))}
+                  className="text-xs px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-colors"
+                >
+                  Select All
+                </button>
+                <button
+                  onClick={() => setSelectedClients(new Set())}
+                  className="text-xs px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                >
+                  Clear All
+                </button>
+              </div>
+
+              {/* Client checkboxes */}
+              <div className="space-y-2">
+                {clients.map(client => {
+                  const taskCount = client.tasks.length;
+                  const subtotal = client.tasks.reduce((s, t) => s + t.price, 0);
+                  return (
+                    <label
+                      key={client.name}
+                      className="flex items-center gap-3 p-3 bg-gray-800 hover:bg-gray-750 rounded-lg cursor-pointer transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedClients.has(client.name)}
+                        onChange={(e) => {
+                          const next = new Set(selectedClients);
+                          if (e.target.checked) {
+                            next.add(client.name);
+                          } else {
+                            next.delete(client.name);
+                          }
+                          setSelectedClients(next);
+                        }}
+                        className="w-4 h-4 accent-violet-500 cursor-pointer"
+                      />
+                      <div className="flex-1">
+                        <div className="text-white font-medium text-sm">{client.name}</div>
+                        <div className="text-gray-400 text-xs">
+                          {taskCount} task{taskCount !== 1 ? 's' : ''} • {fmt(convertPrice(subtotal, settings.exchangeRate), settings.currency)}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-700 flex justify-end gap-3">
+              <button
+                onClick={() => setShowClientSelector(false)}
+                className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={generatePDF}
+                disabled={selectedClients.size === 0}
+                className="px-4 py-2 text-sm bg-violet-600 hover:bg-violet-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors font-medium"
+              >
+                Generate PDF ({selectedClients.size} client{selectedClients.size !== 1 ? 's' : ''})
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

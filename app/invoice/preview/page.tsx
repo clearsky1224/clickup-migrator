@@ -124,7 +124,6 @@ function PreviewContent() {
                 <thead className="bg-gray-50">
                   <tr className="text-gray-500 text-xs uppercase tracking-wider">
                     <th className="text-left px-3 py-2 font-medium">Task</th>
-                    <th className="text-left px-3 py-2 font-medium w-24">Date</th>
                     <th className="text-left px-3 py-2 font-medium w-28">Type</th>
                     <th className="text-center px-3 py-2 font-medium w-16">Qty</th>
                     <th className="text-center px-3 py-2 font-medium w-16">Hrs</th>
@@ -148,9 +147,6 @@ function PreviewContent() {
                           </a>
                         )}
                       </td>
-                      <td className="px-3 py-2.5 border-t border-gray-100 text-gray-500 text-xs">
-                        {task.date || '—'}
-                      </td>
                       <td className="px-3 py-2.5 border-t border-gray-100 text-gray-600 text-xs">
                         {task.taskType || '—'}
                       </td>
@@ -168,7 +164,7 @@ function PreviewContent() {
                 </tbody>
                 <tfoot>
                   <tr className="bg-gray-900 text-white">
-                    <td colSpan={5} className="px-3 py-2.5 text-right font-semibold text-sm">Subtotal</td>
+                    <td colSpan={4} className="px-3 py-2.5 text-right font-semibold text-sm">Subtotal</td>
                     <td className="px-3 py-2.5 text-right font-bold font-mono">{fmt(convertPrice(subtotal, settings?.exchangeRate || 1), settings?.currency || 'USD')}</td>
                   </tr>
                 </tfoot>
