@@ -189,7 +189,10 @@ export default function InvoicePage() {
       return { ...c, tasks: c.tasks.map(t => {
         if (t.id !== taskId) return t;
         const u = { ...t, ...updates };
-        u.price = calcPrice(u);
+        // Only recalculate price if price is not being explicitly updated
+        if (!('price' in updates)) {
+          u.price = calcPrice(u);
+        }
         return u;
       })};
     }));
