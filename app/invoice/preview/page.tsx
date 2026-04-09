@@ -144,14 +144,14 @@ function PreviewContent() {
                   {client.tasks.map((task, i) => (
                     <tr key={task.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
                       <td className="px-3 py-2.5 border-t border-gray-100">
-                        <p className="font-medium text-gray-800">{task.name || '—'}</p>
-                        {task.desc && <p className="text-xs text-gray-500 mt-0.5">{task.desc}</p>}
+                        <p className="font-medium text-gray-800 whitespace-pre-wrap">{task.name || '—'}</p>
+                        {task.desc && <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-wrap">{task.desc}</p>}
                         {task.url && (
                           <a 
                             href={task.url} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="text-[10px] text-blue-600 hover:text-blue-800 underline mt-1 block break-all"
+                            className="text-[10px] text-blue-600 hover:text-blue-800 underline mt-1 block break-all whitespace-pre-wrap"
                           >
                             {task.url}
                           </a>
