@@ -171,9 +171,10 @@ export async function POST(req: NextRequest) {
           async function runTask(task: ClickUpTask, parentId?: string) {
             try {
               const existingTaskId = tasksToUpdate.get(task.name);
-              const newTask = await migrateTask(client, task, newList!.id, config, fieldMap, parentId, sourceUrlFieldId, existingTaskId);
+              const isUpdate = !!existingTaskId;
+              const newTask = await migrateTask(client, task, newList!.id, config, fieldMap, parentId, sourceUrlFieldId, existingTaskId, isUpdate);
               migrated++;
-              const action = existingTaskId ? 'updated' : 'migrated';
+              const action = isUpdate ? 'updated' : 'migrated';
               send({ type: 'task_done', listId, taskName: task.name, tasksMigrated: migrated, tasksTotal: totalCount, action });
 
               if (!parentId && config.options.migrateSubtasks && task.subtasks?.length) {
@@ -230,7 +231,8 @@ async function migrateTask(
   fieldMap: Record<string, string>,
   parentId?: string,
   sourceUrlFieldId?: string,
-  existingTaskId?: string
+  existingTaskId?: string,
+  isUpdate?: boolean
 ): Promise<ClickUpTask> {
   // Fetch full task to get markdown_description (with links) and attachments
   const fullTask = await client.getTask(task.id);
@@ -252,7 +254,11 @@ async function migrateTask(
   } else if (!sourceUrlFieldId) {
     payload.description = `---\n🔗 Migrated from: ${sourceUrl}`;
   }
-  if (config.options.migrateStatuses) {
+  if (isUpdate) {
+    // For updated tasks, always set status to "New Update"
+    payload.status = 'New Update';
+  } else if (config.options.migrateStatuses) {
+    // For new tasks, use original status
     payload.status = task.status.status;
   }
   if (config.options.migratePriority && task.priority) {
