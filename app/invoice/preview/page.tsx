@@ -25,6 +25,7 @@ function convertPrice(usdPrice: number, exchangeRate: number): number {
 function PreviewContent() {
   const searchParams = useSearchParams();
   const [month, setMonth] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
   const [clients, setClients] = useState<InvoiceClient[]>([]);
   const [settings, setSettings] = useState<InvoiceSettings | null>(null);
 
@@ -35,6 +36,7 @@ function PreviewContent() {
       try {
         const parsed = JSON.parse(previewData);
         setMonth(parsed.month || '');
+        setInvoiceNumber(parsed.invoiceNumber || '');
         setClients(parsed.clients || []);
         setSettings(parsed.settings || null);
         // Clear it after reading to avoid stale data
@@ -51,6 +53,7 @@ function PreviewContent() {
       try {
         const parsed = JSON.parse(decodeURIComponent(raw));
         setMonth(parsed.month || '');
+        setInvoiceNumber(parsed.invoiceNumber || '');
         setClients(parsed.clients || []);
         setSettings(parsed.settings || null);
       } catch { /* ignore */ }
@@ -70,6 +73,15 @@ function PreviewContent() {
       }
     }
   }, [searchParams]);
+
+  // Set document title for PDF filename
+  useEffect(() => {
+    if (clients.length > 0 && invoiceNumber) {
+      const clientNames = clients.map(c => c.name).join(', ');
+      const filename = `${clientNames} - Invoice - ${invoiceNumber}`;
+      document.title = filename;
+    }
+  }, [clients, invoiceNumber]);
 
   const grandTotal = clients.reduce((s, c) => s + c.tasks.reduce((ts, t) => ts + t.price, 0), 0);
   const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -123,6 +135,7 @@ function PreviewContent() {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">INVOICE</h1>
             <p className="text-gray-500 mt-1">{month}</p>
+            {invoiceNumber && <p className="text-gray-600 text-sm mt-1">Invoice #: {invoiceNumber}</p>}
           </div>
           <div className="text-right">
             <p className="font-bold text-gray-900 text-lg">{settings?.myName || 'Freelancer'}</p>

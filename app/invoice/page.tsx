@@ -61,6 +61,13 @@ export default function InvoicePage() {
     const d = new Date();
     return d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
   });
+  const [invoiceNumber, setInvoiceNumber] = useState(() => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `JMC-${year}${month}${day}`;
+  });
   const [clients, setClients] = useState<InvoiceClient[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [importError, setImportError] = useState('');
@@ -82,6 +89,7 @@ export default function InvoicePage() {
       try {
         const p = JSON.parse(saved);
         if (p.month) setMonth(p.month);
+        if (p.invoiceNumber) setInvoiceNumber(p.invoiceNumber);
         if (p.clients) setClients(p.clients);
       } catch { /* ignore */ }
     }
@@ -102,8 +110,8 @@ export default function InvoicePage() {
   }, [router]);
 
   useEffect(() => {
-    localStorage.setItem('invoice_data', JSON.stringify({ month, clients }));
-  }, [month, clients]);
+    localStorage.setItem('invoice_data', JSON.stringify({ month, invoiceNumber, clients }));
+  }, [month, invoiceNumber, clients]);
 
   function notify(msg: string) {
     setNotification(msg);
@@ -412,7 +420,7 @@ export default function InvoicePage() {
     const clientsToExport = clients.filter(c => selectedClients.has(c.name));
     
     // Save to localStorage to avoid URL length limits
-    const previewData = { month, clients: clientsToExport, settings };
+    const previewData = { month, invoiceNumber, clients: clientsToExport, settings };
     localStorage.setItem('invoice_preview_data', JSON.stringify(previewData));
     window.open(`/invoice/preview`, '_blank');
     setShowClientSelector(false);
@@ -460,6 +468,13 @@ export default function InvoicePage() {
           type="text" value={month} onChange={e => setMonth(e.target.value)}
           className="bg-gray-800 border border-gray-700 text-white text-xs rounded px-2 py-1.5 outline-none focus:border-violet-500 w-32 mr-2"
           placeholder="Month"
+        />
+        
+        {/* Invoice Number */}
+        <input
+          type="text" value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)}
+          className="bg-gray-800 border border-gray-700 text-white text-xs rounded px-2 py-1.5 outline-none focus:border-violet-500 w-36 mr-2"
+          placeholder="JMC-20260410"
         />
         <div className="w-px h-5 bg-gray-700 mx-1" />
 

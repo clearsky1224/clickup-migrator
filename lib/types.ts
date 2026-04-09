@@ -177,6 +177,7 @@ export interface InvoiceClient {
 
 export interface InvoiceSheet {
   month:   string;       // e.g. "April 2026"
+  invoiceNumber: string; // e.g. "JMC-20260410"
   clients: InvoiceClient[];
 }
 
