@@ -810,15 +810,21 @@ function SheetRow({
       {/* Price */}
       <td className="px-0 py-0 w-24">
         {task.taskType === 'Fixed Price' ? (
-          <input
-            type="number"
-            value={task.price === 0 ? '' : task.price}
-            onChange={e => onChange({ price: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
-            placeholder="0.00"
-            min={0}
-            step={0.01}
-            className="w-full bg-transparent text-white text-xs px-3 py-2 outline-none text-right focus:bg-gray-800/60 rounded transition-colors font-semibold tabular-nums"
-          />
+          <div className="relative">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs pointer-events-none">
+              {new Intl.NumberFormat('en-US', { style: 'currency', currency: settings.currency }).format(0).replace(/[\d.,]/g, '').trim()}
+            </div>
+            <input
+              type="number"
+              value={task.price === 0 ? '' : task.price}
+              onChange={e => onChange({ price: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
+              placeholder="0.00"
+              min={0}
+              step={0.01}
+              className="w-full bg-transparent text-white text-xs px-3 py-2 outline-none text-right focus:bg-gray-800/60 rounded transition-colors font-semibold tabular-nums"
+              style={{ paddingLeft: '1.5rem' }}
+            />
+          </div>
         ) : (
           <div className="px-3 py-2 text-right text-white font-semibold tabular-nums select-none">
             {fmt(convertPrice(task.price, settings.exchangeRate), settings.currency)}
