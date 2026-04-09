@@ -75,7 +75,7 @@ function PreviewContent() {
   const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen print:min-h-0 bg-gray-100 print:bg-white">
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
           @page {
@@ -117,7 +117,7 @@ function PreviewContent() {
       </div>
 
       {/* Invoice document */}
-      <div className="max-w-4xl mx-auto my-8 print:my-0 bg-white shadow-xl print:shadow-none p-10 print:p-8">
+      <div className="max-w-4xl mx-auto my-8 print:my-0 print:max-w-none bg-white shadow-xl print:shadow-none p-10 print:p-0">
         {/* Header */}
         <div className="flex justify-between items-start mb-8">
           <div>
