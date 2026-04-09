@@ -422,7 +422,12 @@ export default function InvoicePage() {
     // Save to localStorage to avoid URL length limits
     const previewData = { month, invoiceNumber, clients: clientsToExport, settings };
     localStorage.setItem('invoice_preview_data', JSON.stringify(previewData));
-    window.open(`/invoice/preview`, '_blank');
+    
+    // Small delay to ensure localStorage is written before opening window
+    setTimeout(() => {
+      window.open(`/invoice/preview`, '_blank');
+    }, 100);
+    
     setShowClientSelector(false);
   }
 
@@ -727,12 +732,29 @@ export default function InvoicePage() {
           );
         })}
 
-        {/* Grand total */}
+        {/* Grand total - grouped by currency */}
         {clients.length > 0 && (
           <div className="flex justify-end pt-2 pb-4">
-            <div className="bg-gradient-to-r from-violet-900/50 to-violet-800/30 border border-violet-700/40 rounded-xl px-6 py-3 flex items-center gap-8">
-              <span className="text-gray-400 text-sm font-medium">Grand Total — {month}</span>
-              <span className="text-white text-2xl font-bold tabular-nums">{fmt(convertPrice(grandTotal, settings.exchangeRate), settings.currency)}</span>
+            <div className="bg-gradient-to-r from-violet-900/50 to-violet-800/30 border border-violet-700/40 rounded-xl px-6 py-4 min-w-80">
+              <div className="text-gray-400 text-sm font-medium mb-2">Grand Total — {month}</div>
+              {(() => {
+                // Group totals by currency
+                const totalsByCurrency = new Map<string, number>();
+                clients.forEach(client => {
+                  const clientCurrency = client.currency || settings.currency;
+                  const clientRate = client.exchangeRate || settings.exchangeRate;
+                  const subtotal = client.tasks.reduce((s, t) => s + t.price, 0);
+                  const converted = convertPrice(subtotal, clientRate);
+                  totalsByCurrency.set(clientCurrency, (totalsByCurrency.get(clientCurrency) || 0) + converted);
+                });
+                
+                return Array.from(totalsByCurrency.entries()).map(([currency, total]) => (
+                  <div key={currency} className="flex justify-between gap-8 mb-1 last:mb-0">
+                    <span className="text-gray-300 text-sm">{currency}</span>
+                    <span className="text-white text-2xl font-bold tabular-nums">{fmt(total, currency)}</span>
+                  </div>
+                ));
+              })()}
             </div>
           </div>
         )}
