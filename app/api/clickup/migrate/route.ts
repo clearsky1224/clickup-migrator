@@ -61,11 +61,23 @@ export async function POST(req: NextRequest) {
               : await client.createFolderlessList(targetSpaceId, sourceList.name, cleanStatuses);
           }
 
-          // Build set of existing task names in target list for duplicate skipping
-          let existingTaskNames = new Set<string>();
+          // Fetch existing tasks in the target list for duplicate detection and update checking
+          const existingTaskNames = new Set<string>();
+          const existingTasksMap = new Map<string, { id: string; date_updated: string }>();
           if (config.options.skipDuplicates) {
-            const existingTasks = await client.getAllTasks(newList!.id);
-            existingTaskNames = new Set(existingTasks.map((t) => t.name));
+            try {
+              const existing = await client.getAllTasks(newList.id);
+              for (const t of existing) {
+                existingTaskNames.add(t.name);
+                // Store task info for update checking
+                existingTasksMap.set(t.name, { 
+                  id: t.id, 
+                  date_updated: (t as unknown as Record<string, unknown>).date_updated as string || '0'
+                });
+              }
+            } catch {
+              // If we can't fetch existing tasks, proceed without duplicate detection
+            }
           }
 
           let fieldMap: Record<string, string> = {};
@@ -96,9 +108,31 @@ export async function POST(req: NextRequest) {
             );
           }
 
-          // Filter out duplicates
+          // Filter out duplicates, but include tasks that have been updated
+          const tasksToMigrate: ClickUpTask[] = [];
+          const tasksToUpdate = new Map<string, string>(); // task name -> existing task ID
+          
           if (config.options.skipDuplicates && existingTaskNames.size > 0) {
-            topLevel = topLevel.filter((t) => !existingTaskNames.has(t.name));
+            for (const t of topLevel) {
+              const existing = existingTasksMap.get(t.name);
+              if (!existing) {
+                // New task - migrate it
+                tasksToMigrate.push(t);
+              } else {
+                // Task exists - check if source was updated after target
+                const sourceUpdated = (t as unknown as Record<string, unknown>).date_updated as string || '0';
+                const targetUpdated = existing.date_updated;
+                
+                if (parseInt(sourceUpdated) > parseInt(targetUpdated)) {
+                  // Source task is newer - re-migrate it
+                  tasksToMigrate.push(t);
+                  tasksToUpdate.set(t.name, existing.id);
+                  send({ type: 'task_update_detected', listId, taskName: t.name });
+                }
+                // else: target is up to date, skip
+              }
+            }
+            topLevel = tasksToMigrate;
           }
           const totalCount = topLevel.length + (config.options.migrateSubtasks
             ? topLevel.reduce((sum, t) => sum + (t.subtasks?.length ?? 0), 0)
@@ -112,9 +146,11 @@ export async function POST(req: NextRequest) {
 
           async function runTask(task: ClickUpTask, parentId?: string) {
             try {
-              const newTask = await migrateTask(client, task, newList!.id, config, fieldMap, parentId, sourceUrlFieldId);
+              const existingTaskId = tasksToUpdate.get(task.name);
+              const newTask = await migrateTask(client, task, newList!.id, config, fieldMap, parentId, sourceUrlFieldId, existingTaskId);
               migrated++;
-              send({ type: 'task_done', listId, taskName: task.name, tasksMigrated: migrated, tasksTotal: totalCount });
+              const action = existingTaskId ? 'updated' : 'migrated';
+              send({ type: 'task_done', listId, taskName: task.name, tasksMigrated: migrated, tasksTotal: totalCount, action });
 
               if (!parentId && config.options.migrateSubtasks && task.subtasks?.length) {
                 for (const sub of task.subtasks) {
@@ -169,7 +205,8 @@ async function migrateTask(
   config: MigrationConfig,
   fieldMap: Record<string, string>,
   parentId?: string,
-  sourceUrlFieldId?: string
+  sourceUrlFieldId?: string,
+  existingTaskId?: string
 ): Promise<ClickUpTask> {
   // Fetch full task to get markdown_description (with links) and attachments
   const fullTask = await client.getTask(task.id);
@@ -209,16 +246,36 @@ async function migrateTask(
   }
 
   let newTask: ClickUpTask;
-  try {
-    newTask = await client.createTask(targetListId, payload as unknown as ClickUpTask & { name: string });
-  } catch (err: unknown) {
-    // Retry without status/dates if ClickUp rejects the payload (e.g. status doesn't exist yet)
-    const status = (err as { response?: { status?: number } })?.response?.status;
-    if (status === 400) {
-      const { status: _s, due_date: _d, start_date: _sd, ...safePayload } = payload as Record<string, unknown>;
-      newTask = await client.createTask(targetListId, safePayload as unknown as ClickUpTask & { name: string });
-    } else {
-      throw err;
+  
+  if (existingTaskId) {
+    // Update existing task
+    try {
+      await client.updateTask(existingTaskId, payload);
+      newTask = await client.getTask(existingTaskId);
+    } catch (err: unknown) {
+      // Retry without status/dates if ClickUp rejects the payload
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 400) {
+        const { status: _s, due_date: _d, start_date: _sd, ...safePayload } = payload as Record<string, unknown>;
+        await client.updateTask(existingTaskId, safePayload);
+        newTask = await client.getTask(existingTaskId);
+      } else {
+        throw err;
+      }
+    }
+  } else {
+    // Create new task
+    try {
+      newTask = await client.createTask(targetListId, payload as unknown as ClickUpTask & { name: string });
+    } catch (err: unknown) {
+      // Retry without status/dates if ClickUp rejects the payload (e.g. status doesn't exist yet)
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 400) {
+        const { status: _s, due_date: _d, start_date: _sd, ...safePayload } = payload as Record<string, unknown>;
+        newTask = await client.createTask(targetListId, safePayload as unknown as ClickUpTask & { name: string });
+      } else {
+        throw err;
+      }
     }
   }
 

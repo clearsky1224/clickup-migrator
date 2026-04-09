@@ -124,6 +124,11 @@ export function createClient(token: string) {
       return res.data;
     },
 
+    async updateTask(taskId: string, payload: Partial<ClickUpTask>): Promise<ClickUpTask> {
+      const res = await client.put(`/task/${taskId}`, payload);
+      return res.data;
+    },
+
     async setCustomFieldValue(taskId: string, fieldId: string, value: unknown): Promise<void> {
       await client.post(`/task/${taskId}/field/${fieldId}`, { value });
     },
