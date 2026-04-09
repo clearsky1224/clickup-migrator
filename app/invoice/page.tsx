@@ -7,7 +7,7 @@ import {
   RefreshCw, ChevronDown, ChevronRight, FolderOpen,
   List, Loader2, AlertCircle, CheckCircle2, ExternalLink,
   FileSpreadsheet, FileDown, X, Check,
-  Copy, Clipboard, MoreHorizontal, ArrowUp, ArrowDown
+  Copy, Clipboard, MoreHorizontal, ArrowUp, ArrowDown, Calendar
 } from 'lucide-react';
 import type {
   InvoiceClient, InvoiceTask, InvoiceSettings,
@@ -24,7 +24,7 @@ function calcPrice(task: InvoiceTask): number {
   if (!type || !(type in TASK_TYPE_RATES)) return 0;
   const rate = TASK_TYPE_RATES[type];
   if (type === 'Hourly') return rate * (typeof task.hrs === 'number' ? task.hrs : 0);
-  if (type === 'Fixed Price') return typeof task.qty === 'number' ? task.qty : 0;
+  if (type === 'Fixed Price') return task.price; // Keep manually entered price
   if (type === 'N/A / Free') return 0;
   return rate * (typeof task.qty === 'number' ? task.qty : 0);
 }
@@ -744,9 +744,9 @@ function SheetRow({
       </td>
 
       {/* Date */}
-      <td className="px-0 py-0 w-28">
+      <td className="px-0 py-0 w-28 relative">
         <input type="date" value={task.date} onChange={e => onChange({ date: e.target.value })}
-          className="w-full bg-transparent text-gray-400 text-xs px-3 py-2 outline-none focus:bg-gray-800/60 border-r border-gray-800/0 focus:border-violet-500/50 rounded transition-colors" />
+          className="w-full bg-transparent text-white text-xs px-3 py-2 outline-none focus:bg-gray-800/60 border-r border-gray-800/0 focus:border-violet-500/50 rounded transition-colors [color-scheme:dark]" />
       </td>
 
       {/* Task Type */}
@@ -784,8 +784,22 @@ function SheetRow({
       </td>
 
       {/* Price */}
-      <td className="px-3 py-2 text-right text-white font-semibold tabular-nums w-24 select-none">
-        {fmt(convertPrice(task.price, settings.exchangeRate), settings.currency)}
+      <td className="px-0 py-0 w-24">
+        {task.taskType === 'Fixed Price' ? (
+          <input
+            type="number"
+            value={task.price === 0 ? '' : task.price}
+            onChange={e => onChange({ price: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
+            placeholder="0.00"
+            min={0}
+            step={0.01}
+            className="w-full bg-transparent text-white text-xs px-3 py-2 outline-none text-right focus:bg-gray-800/60 rounded transition-colors font-semibold tabular-nums"
+          />
+        ) : (
+          <div className="px-3 py-2 text-right text-white font-semibold tabular-nums select-none">
+            {fmt(convertPrice(task.price, settings.exchangeRate), settings.currency)}
+          </div>
+        )}
       </td>
 
       {/* Row actions */}
