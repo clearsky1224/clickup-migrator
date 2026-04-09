@@ -392,8 +392,10 @@ export default function InvoicePage() {
   }
 
   function exportPDF() {
-    const data = encodeURIComponent(JSON.stringify({ month, clients, settings }));
-    window.open(`/invoice/preview?data=${data}`, '_blank');
+    // Save to localStorage to avoid URL length limits
+    const previewData = { month, clients, settings };
+    localStorage.setItem('invoice_preview_data', JSON.stringify(previewData));
+    window.open(`/invoice/preview`, '_blank');
   }
 
   function clearSheet() {

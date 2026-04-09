@@ -22,6 +22,23 @@ function PreviewContent() {
   const [settings, setSettings] = useState<InvoiceSettings | null>(null);
 
   useEffect(() => {
+    // First try preview data (from PDF export button)
+    const previewData = localStorage.getItem('invoice_preview_data');
+    if (previewData) {
+      try {
+        const parsed = JSON.parse(previewData);
+        setMonth(parsed.month || '');
+        setClients(parsed.clients || []);
+        setSettings(parsed.settings || null);
+        // Clear it after reading to avoid stale data
+        localStorage.removeItem('invoice_preview_data');
+        return;
+      } catch (e) {
+        console.error('Failed to parse preview data:', e);
+      }
+    }
+    
+    // Fallback to URL parameter (legacy)
     const raw = searchParams.get('data');
     if (raw) {
       try {
@@ -31,7 +48,7 @@ function PreviewContent() {
         setSettings(parsed.settings || null);
       } catch { /* ignore */ }
     } else {
-      // Try localStorage fallback
+      // Final fallback to regular invoice data
       const saved = localStorage.getItem('invoice_data');
       const savedSettings = localStorage.getItem('invoice_settings');
       if (saved) {
