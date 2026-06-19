@@ -6,6 +6,25 @@ import type {
 
 const BASE = 'https://api.clickup.com/api/v2';
 
+type ClickUpTaskWritePayload = Record<string, unknown>;
+
+function toClickUpTaskWritePayload(payload: ClickUpTaskWritePayload): ClickUpTaskWritePayload {
+  const { markdown_description, ...rest } = payload;
+  const normalized: ClickUpTaskWritePayload = { ...rest };
+
+  // ClickUp returns markdown descriptions as `markdown_description` from GET /task,
+  // but create/update task endpoints expect the writable field `markdown_content`.
+  if (typeof markdown_description === 'string' && normalized.markdown_content === undefined) {
+    normalized.markdown_content = markdown_description;
+  }
+
+  for (const key of Object.keys(normalized)) {
+    if (normalized[key] === undefined) delete normalized[key];
+  }
+
+  return normalized;
+}
+
 export function createClient(token: string) {
   const client = axios.create({
     baseURL: BASE,
@@ -113,7 +132,10 @@ export function createClient(token: string) {
     },
 
     async createTask(listId: string, payload: Partial<ClickUpTask> & { name: string }): Promise<ClickUpTask> {
-      const res = await client.post(`/list/${listId}/task`, payload);
+      const res = await client.post(
+        `/list/${listId}/task`,
+        toClickUpTaskWritePayload(payload as ClickUpTaskWritePayload)
+      );
       return res.data;
     },
 
@@ -125,7 +147,10 @@ export function createClient(token: string) {
     },
 
     async updateTask(taskId: string, payload: Partial<ClickUpTask>): Promise<ClickUpTask> {
-      const res = await client.put(`/task/${taskId}`, payload);
+      const res = await client.put(
+        `/task/${taskId}`,
+        toClickUpTaskWritePayload(payload as ClickUpTaskWritePayload)
+      );
       return res.data;
     },
 
