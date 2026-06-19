@@ -2,6 +2,13 @@ import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/clickup';
 import type { MigrationConfig, ClickUpTask } from '@/lib/types';
 
+type TaskWritePayload = Record<string, unknown> & { name: string };
+type AxiosLikeError = {
+  message?: string;
+  config?: { method?: string; url?: string };
+  response?: { status?: number; data?: unknown };
+};
+
 export async function POST(req: NextRequest) {
   const token = req.headers.get('Authorization') || req.cookies.get('clickup_token')?.value;
   if (!token) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
@@ -70,8 +77,8 @@ export async function POST(req: NextRequest) {
               for (const t of existing) {
                 existingTaskNames.add(t.name);
                 // Store task info for update checking
-                existingTasksMap.set(t.name, { 
-                  id: t.id, 
+                existingTasksMap.set(t.name, {
+                  id: t.id,
                   date_updated: (t as unknown as Record<string, unknown>).date_updated as string || '0'
                 });
               }
@@ -111,7 +118,7 @@ export async function POST(req: NextRequest) {
           // Filter out duplicates, but include tasks that have been updated
           const tasksToMigrate: ClickUpTask[] = [];
           const tasksToUpdate = new Map<string, string>(); // task name -> existing task ID
-          
+
           if (config.options.skipDuplicates && existingTaskNames.size > 0) {
             for (const t of topLevel) {
               const existing = existingTasksMap.get(t.name);
@@ -124,25 +131,33 @@ export async function POST(req: NextRequest) {
                 try {
                   const sourceTask = await client.getTask(t.id);
                   const targetTask = await client.getTask(existing.id);
-                  
+
                   const sourceRaw = sourceTask as unknown as Record<string, unknown>;
                   const targetRaw = targetTask as unknown as Record<string, unknown>;
-                  
+
                   // Compare description (ignore status changes)
                   const sourceDesc = (sourceRaw.markdown_description || sourceRaw.description || '') as string;
                   const targetDesc = (targetRaw.markdown_description || targetRaw.description || '') as string;
-                  
+
                   // Check if description changed
                   const descChanged = sourceDesc.trim() !== targetDesc.trim().replace(/\n\n---\n🔗 Migrated from:.*$/, '').trim();
-                  
+
                   // Check if custom fields changed (if migration enabled)
                   let customFieldsChanged = false;
                   if (config.options.migrateCustomFields && sourceTask.custom_fields?.length) {
-                    const sourceFields = JSON.stringify(sourceTask.custom_fields.map(f => ({ id: f.id, value: f.value })).sort());
-                    const targetFields = JSON.stringify(targetTask.custom_fields?.map(f => ({ id: f.id, value: f.value })).sort() || []);
-                    customFieldsChanged = sourceFields !== targetFields;
+                    const sourceFields = JSON.stringify(
+                      sourceTask.custom_fields
+                        .map((f) => ({ id: f.id, value: f.value }))
+                        .sort((a, b) => a.id.localeCompare(b.id))
+                    );
+                    const targetFieldsForTask = JSON.stringify(
+                      (targetTask.custom_fields ?? [])
+                        .map((f) => ({ id: f.id, value: f.value }))
+                        .sort((a, b) => a.id.localeCompare(b.id))
+                    );
+                    customFieldsChanged = sourceFields !== targetFieldsForTask;
                   }
-                  
+
                   if (descChanged || customFieldsChanged) {
                     // Meaningful content changed - re-migrate it
                     tasksToMigrate.push(t);
@@ -152,7 +167,7 @@ export async function POST(req: NextRequest) {
                   // else: only status or dates changed, skip
                 } catch (err) {
                   // If we can't fetch tasks for comparison, skip to be safe
-                  console.error(`Could not compare tasks for "${t.name}":`, err);
+                  console.error(`Could not compare tasks for "${t.name}":`, formatClickUpError(err));
                 }
               }
             }
@@ -234,10 +249,11 @@ async function migrateTask(
   existingTaskId?: string,
   isUpdate?: boolean
 ): Promise<ClickUpTask> {
-  // Fetch full task to get markdown_description (with links) and attachments
-  const fullTask = await client.getTask(task.id);
+  // Fetch full task to get markdown_description (with links) and attachments.
+  // If ClickUp rejects GET /task/{id}, continue with the list task data instead of failing the migration.
+  const fullTask = await getFullTaskOrFallback(client, task);
 
-  const payload: Record<string, unknown> = { name: task.name };
+  const payload: TaskWritePayload = { name: task.name };
 
   const sourceUrl = `https://app.clickup.com/t/${task.id}`;
   const raw = fullTask as unknown as Record<string, unknown>;
@@ -255,59 +271,30 @@ async function migrateTask(
     payload.description = `---\n🔗 Migrated from: ${sourceUrl}`;
   }
   if (isUpdate) {
-    // For updated tasks, always set status to "New Update"
+    // For updated tasks, try to surface the update in a dedicated status when available.
     payload.status = 'New Update';
-  } else if (config.options.migrateStatuses) {
-    // For new tasks, use original status
+  } else if (config.options.migrateStatuses && task.status?.status) {
+    // For new tasks, use original status.
     payload.status = task.status.status;
   }
   if (config.options.migratePriority && task.priority) {
-    payload.priority = parseInt(task.priority.id);
+    const priority = parseInt(task.priority.id, 10);
+    if (!Number.isNaN(priority)) payload.priority = priority;
   }
   if (config.options.migrateDates) {
     if (task.due_date) payload.due_date = task.due_date;
     if (task.start_date) payload.start_date = task.start_date;
   }
-  if (config.options.migrateTags && task.tags?.length) {
+  if (!isUpdate && config.options.migrateTags && task.tags?.length) {
     payload.tags = task.tags.map((t) => t.name);
   }
   if (parentId) {
     payload.parent = parentId;
   }
 
-  let newTask: ClickUpTask;
-  
-  if (existingTaskId) {
-    // Update existing task
-    try {
-      await client.updateTask(existingTaskId, payload);
-      newTask = await client.getTask(existingTaskId);
-    } catch (err: unknown) {
-      // Retry without status/dates if ClickUp rejects the payload
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      if (status === 400) {
-        const { status: _s, due_date: _d, start_date: _sd, ...safePayload } = payload as Record<string, unknown>;
-        await client.updateTask(existingTaskId, safePayload);
-        newTask = await client.getTask(existingTaskId);
-      } else {
-        throw err;
-      }
-    }
-  } else {
-    // Create new task
-    try {
-      newTask = await client.createTask(targetListId, payload as unknown as ClickUpTask & { name: string });
-    } catch (err: unknown) {
-      // Retry without status/dates if ClickUp rejects the payload (e.g. status doesn't exist yet)
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      if (status === 400) {
-        const { status: _s, due_date: _d, start_date: _sd, ...safePayload } = payload as Record<string, unknown>;
-        newTask = await client.createTask(targetListId, safePayload as unknown as ClickUpTask & { name: string });
-      } else {
-        throw err;
-      }
-    }
-  }
+  const newTask = existingTaskId
+    ? await updateTaskWithRetries(client, existingTaskId, payload)
+    : await createTaskWithRetries(client, targetListId, payload);
 
   // Set ClickUp URL field if it exists in the target list
   if (sourceUrlFieldId) {
@@ -354,4 +341,150 @@ async function migrateTask(
   }
 
   return newTask;
+}
+
+async function getFullTaskOrFallback(
+  client: ReturnType<typeof createClient>,
+  task: ClickUpTask
+): Promise<ClickUpTask> {
+  try {
+    return await client.getTask(task.id);
+  } catch (err) {
+    console.warn(`[migrate] Could not fetch full task "${task.name}" (${task.id}); continuing with list data. ${formatClickUpError(err)}`);
+    return task;
+  }
+}
+
+async function createTaskWithRetries(
+  client: ReturnType<typeof createClient>,
+  targetListId: string,
+  payload: TaskWritePayload
+): Promise<ClickUpTask> {
+  return runWithBadRequestFallback(payloadVariants(payload, false), 'Create task', async (candidate) =>
+    client.createTask(targetListId, candidate as unknown as Partial<ClickUpTask> & { name: string })
+  );
+}
+
+async function updateTaskWithRetries(
+  client: ReturnType<typeof createClient>,
+  taskId: string,
+  payload: TaskWritePayload
+): Promise<ClickUpTask> {
+  return runWithBadRequestFallback(payloadVariants(payload, true), 'Update task', async (candidate) => {
+    await client.updateTask(taskId, candidate as unknown as Partial<ClickUpTask>);
+    try {
+      return await client.getTask(taskId);
+    } catch {
+      return { ...candidate, id: taskId } as unknown as ClickUpTask;
+    }
+  });
+}
+
+async function runWithBadRequestFallback(
+  variants: TaskWritePayload[],
+  operation: string,
+  runner: (payload: TaskWritePayload) => Promise<ClickUpTask>
+): Promise<ClickUpTask> {
+  let lastError: unknown;
+
+  for (const candidate of variants) {
+    try {
+      return await runner(candidate);
+    } catch (err) {
+      if (getClickUpStatus(err) !== 400) throw err;
+      lastError = err;
+    }
+  }
+
+  throw new Error(`${operation} failed after retrying without optional fields. ${formatClickUpError(lastError)}`);
+}
+
+function payloadVariants(payload: TaskWritePayload, isUpdate: boolean): TaskWritePayload[] {
+  const firstAttempt = isUpdate ? withoutFields(payload, ['tags']) : payload;
+  const rawVariants = [
+    firstAttempt,
+    withoutFields(firstAttempt, ['status', 'due_date', 'start_date']),
+    withoutFields(payload, ['status', 'due_date', 'start_date', 'tags', 'priority']),
+    minimalTaskPayload(payload),
+  ];
+
+  const variants: TaskWritePayload[] = [];
+  const seen = new Set<string>();
+
+  for (const rawVariant of rawVariants) {
+    const variant = compactPayload(rawVariant);
+    const key = JSON.stringify(variant);
+    if (!seen.has(key)) {
+      seen.add(key);
+      variants.push(variant);
+    }
+  }
+
+  return variants;
+}
+
+function minimalTaskPayload(payload: TaskWritePayload): TaskWritePayload {
+  const minimal: TaskWritePayload = { name: payload.name || 'Untitled task' };
+
+  if (typeof payload.markdown_description === 'string') {
+    minimal.markdown_description = payload.markdown_description;
+  } else if (typeof payload.markdown_content === 'string') {
+    minimal.markdown_content = payload.markdown_content;
+  } else if (typeof payload.description === 'string') {
+    minimal.description = payload.description;
+  }
+
+  if (typeof payload.parent === 'string') {
+    minimal.parent = payload.parent;
+  }
+
+  return minimal;
+}
+
+function withoutFields(payload: TaskWritePayload, fields: string[]): TaskWritePayload {
+  const copy: Record<string, unknown> = { ...payload };
+  for (const field of fields) delete copy[field];
+  return copy as TaskWritePayload;
+}
+
+function compactPayload(payload: TaskWritePayload): TaskWritePayload {
+  const compacted: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(payload)) {
+    if (value === undefined) continue;
+    if (typeof value === 'number' && Number.isNaN(value)) continue;
+
+    if ((key === 'due_date' || key === 'start_date' || key === 'time_estimate') && typeof value === 'string' && /^\d+$/.test(value)) {
+      compacted[key] = Number(value);
+    } else {
+      compacted[key] = value;
+    }
+  }
+
+  if (typeof compacted.name !== 'string' || compacted.name.trim().length === 0) {
+    compacted.name = 'Untitled task';
+  }
+
+  return compacted as TaskWritePayload;
+}
+
+function getClickUpStatus(err: unknown): number | undefined {
+  return (err as AxiosLikeError | undefined)?.response?.status;
+}
+
+function formatClickUpError(err: unknown): string {
+  const axiosError = err as AxiosLikeError | undefined;
+  const status = axiosError?.response?.status;
+  const method = axiosError?.config?.method?.toUpperCase();
+  const url = axiosError?.config?.url;
+  const data = axiosError?.response?.data;
+  const message = err instanceof Error ? err.message : String(err);
+  const details = typeof data === 'string'
+    ? data
+    : data !== undefined
+      ? JSON.stringify(data)
+      : message;
+  const request = [method, url].filter(Boolean).join(' ');
+
+  return `ClickUp API${status ? ` ${status}` : ''}${request ? ` (${request})` : ''}: ${details}`;
 }
